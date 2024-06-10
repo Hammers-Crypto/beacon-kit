@@ -15,6 +15,7 @@ prometheus = import_module("./src/observability/prometheus/prometheus.star")
 grafana = import_module("./src/observability/grafana/grafana.star")
 pyroscope = import_module("./src/observability/pyroscope/pyroscope.star")
 tx_fuzz = import_module("./src/services/tx_fuzz/launcher.star")
+op = import_module("./src/services/op/launcher.star")
 blutgang = import_module("./src/services/blutgang/launcher.star")
 
 def run(plan, network_configuration = {}, node_settings = {}, eth_json_rpc_endpoints = [], additional_services = [], metrics_enabled_services = []):
@@ -201,6 +202,15 @@ def run(plan, network_configuration = {}, node_settings = {}, eth_json_rpc_endpo
             )
             next_free_prefunded_account += 1
             plan.print("Successfully launched goomy the blob spammer")
+        elif s.name == "op":
+            plan.print("Launching OP stack L2")
+            l1_full_node = full_node_el_clients[0]["service"]
+            op.launch(
+                plan,
+                op_images,
+                l1_full_node.ip_address,
+            )
+            plan.print("Successfully launched OP stack L2")
         elif s.name == "tx-fuzz":
             plan.print("Launching tx-fuzz")
             if "replicas" not in s_dict:
