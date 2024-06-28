@@ -28,4 +28,9 @@ var (
 	ErrUndefinedValidatorUpdate = errors.New(
 		"undefined validator update",
 	)
+	// ErrInvalidPrepareProposalRequest is returned when an invalid prepare
+	// proposal request is encountered.
+	ErrInvalidPrepareProposalRequest = errors.New(
+		"invalid prepare proposal request",
+	)
 )

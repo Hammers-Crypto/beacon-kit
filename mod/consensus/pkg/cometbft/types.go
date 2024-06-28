@@ -33,9 +33,7 @@ type Middleware interface {
 		ctx context.Context, bz []byte,
 	) (transition.ValidatorUpdates, error)
 	PrepareProposal(context.Context, math.Slot) ([]byte, []byte, error)
-	ProcessProposal(
-		ctx context.Context, req proto.Message,
-	) (proto.Message, error)
+	ProcessProposal(ctx context.Context, req proto.Message) error
 	PreBlock(_ context.Context, req proto.Message) error
 	EndBlock(ctx context.Context) (transition.ValidatorUpdates, error)
 }

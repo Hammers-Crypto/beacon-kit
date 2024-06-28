@@ -6,15 +6,23 @@ replace (
 	// The following are required to build with the latest version of the cosmos-sdk main branch:
 	cosmossdk.io/api => cosmossdk.io/api v0.7.3-0.20240623110059-dec2d5583e39
 	cosmossdk.io/core/testing => cosmossdk.io/core/testing v0.0.0-20240623110059-dec2d5583e39
+	cosmossdk.io/runtime/v2 => github.com/berachain/cosmos-sdk/runtime/v2 v2.0.0-20240627214151-8adce88544c9
+	cosmossdk.io/server/v2 => github.com/berachain/cosmos-sdk/server/v2 v2.0.0-20240627214151-8adce88544c9
+	cosmossdk.io/server/v2/appmanager => github.com/berachain/cosmos-sdk/server/v2/appmanager v0.0.0-20240627214151-8adce88544c9
+	cosmossdk.io/server/v2/cometbft => github.com/berachain/cosmos-sdk/server/v2/cometbft v0.0.0-20240627214151-8adce88544c9
+	cosmossdk.io/store/v2 => github.com/berachain/cosmos-sdk/store/v2 v2.0.0-20240627214151-8adce88544c9
 	github.com/berachain/beacon-kit/mod/consensus => ../consensus
-	github.com/cosmos/cosmos-sdk => github.com/berachain/cosmos-sdk v0.46.0-beta2.0.20240624014538-75ba469b1881
+	github.com/cosmos/cosmos-sdk => github.com/berachain/cosmos-sdk v0.46.0-beta2.0.20240627214151-8adce88544c9
 )
 
 require (
 	cosmossdk.io/api v0.7.5
 	cosmossdk.io/core v0.12.1-0.20240623110059-dec2d5583e39
-	cosmossdk.io/depinject v1.0.0-alpha.4.0.20240506202947-fbddf0a55044
+	cosmossdk.io/depinject v1.0.0-alpha.4.0.20240620161400-a6407f411e80
 	cosmossdk.io/log v1.3.2-0.20240530141513-465410c75bce
+	cosmossdk.io/runtime/v2 v2.0.0-20240623110059-dec2d5583e39
+	cosmossdk.io/server/v2 v2.0.0-20240624191328-722ac39873e4
+	cosmossdk.io/server/v2/appmanager v0.0.0-20240624191328-722ac39873e4
 	cosmossdk.io/store/v2 v2.0.0-20240515130459-16437119e0d8
 	cosmossdk.io/x/tx v0.13.4-0.20240623110059-dec2d5583e39
 	github.com/berachain/beacon-kit/mod/beacon v0.0.0-20240624204855-d8809d5c8588
@@ -24,7 +32,7 @@ require (
 	github.com/berachain/beacon-kit/mod/consensus-types v0.0.0-20240624003607-df94860f8eeb
 	github.com/berachain/beacon-kit/mod/da v0.0.0-20240623073416-b8ac8605c6a0
 	github.com/berachain/beacon-kit/mod/engine-primitives v0.0.0-20240624204855-d8809d5c8588
-	github.com/berachain/beacon-kit/mod/errors v0.0.0-20240624204855-d8809d5c8588
+	github.com/berachain/beacon-kit/mod/errors v0.0.0-20240624210933-3baa52ebb587
 	github.com/berachain/beacon-kit/mod/execution v0.0.0-20240624003607-df94860f8eeb
 	github.com/berachain/beacon-kit/mod/log v0.0.0-20240619234034-fe96d94eafef
 	github.com/berachain/beacon-kit/mod/payload v0.0.0-20240624003607-df94860f8eeb
@@ -33,8 +41,6 @@ require (
 	github.com/berachain/beacon-kit/mod/state-transition v0.0.0-20240624003607-df94860f8eeb
 	github.com/berachain/beacon-kit/mod/storage v0.0.0-20240624003607-df94860f8eeb
 	github.com/cometbft/cometbft v1.0.0-alpha.2.0.20240627055712-4f91afce3247
-	github.com/cometbft/cometbft/api v1.0.0-rc.1
-	github.com/cosmos/cosmos-db v1.0.2
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5
 	github.com/cosmos/cosmos-sdk v0.51.0
 	github.com/crate-crypto/go-kzg-4844 v1.0.0
@@ -46,8 +52,15 @@ require (
 )
 
 require (
+	cosmossdk.io/server/v2/cometbft v0.0.0-00010101000000-000000000000 // indirect
+	cosmossdk.io/server/v2/stf v0.0.0-20240623110059-dec2d5583e39 // indirect
 	github.com/cockroachdb/fifo v0.0.0-20240616162244-4768e80dfb9a // indirect
+	github.com/cometbft/cometbft/api v1.0.0-rc.1 // indirect
+	github.com/cosmos/cosmos-db v1.0.2 // indirect
+	github.com/cosmos/crypto v0.1.0 // indirect
+	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/mitchellh/pointerstructure v1.2.1 // indirect
+	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/phuslu/log v1.0.106 // indirect
 )
 
@@ -55,6 +68,7 @@ require (
 	buf.build/gen/go/cometbft/cometbft/protocolbuffers/go v1.34.2-20240312114316-c0d3497e35d6.2 // indirect
 	buf.build/gen/go/cosmos/gogo-proto/protocolbuffers/go v1.34.2-20240130113600-88ef6483f90f.2 // indirect
 	cosmossdk.io/collections v0.4.0 // indirect
+	cosmossdk.io/core/testing v0.0.0-20240620161400-a6407f411e80 // indirect
 	cosmossdk.io/errors v1.0.1 // indirect
 	cosmossdk.io/math v1.3.0 // indirect
 	cosmossdk.io/store v1.1.1-0.20240418092142-896cdf1971bc // indirect
@@ -85,7 +99,6 @@ require (
 	github.com/consensys/bavard v0.1.13 // indirect
 	github.com/consensys/gnark-crypto v0.12.1 // indirect
 	github.com/cosmos/btcutil v1.0.5 // indirect
-	github.com/cosmos/crypto v0.0.0-20240312084433-de8f9c76030d // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/gogoproto v1.5.0 // indirect
@@ -178,7 +191,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.19.1 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
-	github.com/prometheus/common v0.54.0 // indirect
+	github.com/prometheus/common v0.55.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/prysmaticlabs/gohashtree v0.0.4-beta // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
@@ -193,7 +206,7 @@ require (
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
 	github.com/spf13/cobra v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/spf13/viper v1.19.0 // indirect
+	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/supranational/blst v0.3.12 // indirect
@@ -218,7 +231,7 @@ require (
 	golang.org/x/text v0.16.0 // indirect
 	google.golang.org/genproto v0.0.0-20240617180043-68d350f18fd4 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240617180043-68d350f18fd4 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240617180043-68d350f18fd4 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240624140628-dc46fd24d27d // indirect
 	google.golang.org/grpc v1.64.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

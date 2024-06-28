@@ -21,79 +21,93 @@
 package builder
 
 import (
+	"cosmossdk.io/core/transaction"
 	"cosmossdk.io/depinject"
-	cmdlib "github.com/berachain/beacon-kit/mod/cli/pkg/commands"
+	serverv2 "cosmossdk.io/server/v2"
 	"github.com/berachain/beacon-kit/mod/node-core/pkg/types"
 	cmtcfg "github.com/cometbft/cometbft/config"
-	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/spf13/cobra"
 )
 
 // Opt is a type that defines a function that modifies CLIBuilder.
-type Opt[T types.Node] func(*CLIBuilder[T])
+type Opt[
+	NodeT types.Node[T], T transaction.Tx, ValidatorUpdateT any,
+] func(*CLIBuilder[NodeT, T, ValidatorUpdateT])
 
 // WithName sets the name for the CLIBuilder.
-func WithName[T types.Node](name string) Opt[T] {
-	return func(cb *CLIBuilder[T]) {
+func WithName[
+	NodeT types.Node[T], T transaction.Tx, ValidatorUpdateT any,
+](name string) Opt[NodeT, T, ValidatorUpdateT] {
+	return func(cb *CLIBuilder[NodeT, T, ValidatorUpdateT]) {
 		cb.name = name
 	}
 }
 
 // WithDescription sets the description for the CLIBuilder.
-func WithDescription[T types.Node](description string) Opt[T] {
-	return func(cb *CLIBuilder[T]) {
+func WithDescription[
+	NodeT types.Node[T], T transaction.Tx, ValidatorUpdateT any,
+](description string) Opt[NodeT, T, ValidatorUpdateT] {
+	return func(cb *CLIBuilder[NodeT, T, ValidatorUpdateT]) {
 		cb.description = description
 	}
 }
 
 // WithDepInjectConfig sets the depinject config for the CLIBuilder.
-func WithDepInjectConfig[T types.Node](
-	cfg depinject.Config) Opt[T] {
-	return func(cb *CLIBuilder[T]) {
+func WithDepInjectConfig[
+	NodeT types.Node[T], T transaction.Tx, ValidatorUpdateT any,
+](
+	cfg depinject.Config) Opt[NodeT, T, ValidatorUpdateT] {
+	return func(cb *CLIBuilder[NodeT, T, ValidatorUpdateT]) {
 		cb.depInjectCfg = cfg
 	}
 }
 
 // WithComponents sets the components for the CLIBuilder.
-func WithComponents[T types.Node](components []any) Opt[T] {
-	return func(cb *CLIBuilder[T]) {
+func WithComponents[
+	NodeT types.Node[T], T transaction.Tx, ValidatorUpdateT any,
+](components ...any) Opt[NodeT, T, ValidatorUpdateT] {
+	return func(cb *CLIBuilder[NodeT, T, ValidatorUpdateT]) {
 		cb.components = components
 	}
 }
 
 // SupplyModuleDeps populates the slice of direct module dependencies to be
 // supplied to depinject.
-func SupplyModuleDeps[T types.Node](deps []any) Opt[T] {
-	return func(cb *CLIBuilder[T]) {
+func SupplyModuleDeps[
+	NodeT types.Node[T], T transaction.Tx, ValidatorUpdateT any,
+](deps []any) Opt[NodeT, T, ValidatorUpdateT] {
+	return func(cb *CLIBuilder[NodeT, T, ValidatorUpdateT]) {
 		cb.suppliers = append(cb.suppliers, deps...)
 	}
 }
 
 // WithRunHandler sets the run handler for the CLIBuilder.
-func WithRunHandler[T types.Node](
+func WithRunHandler[NodeT types.Node[T], T transaction.Tx, ValidatorUpdateT any](
 	runHandler func(cmd *cobra.Command,
 		customAppConfigTemplate string,
 		customAppConfig interface{},
 		cmtConfig *cmtcfg.Config,
 	) error,
-) Opt[T] {
-	return func(cb *CLIBuilder[T]) {
+) Opt[NodeT, T, ValidatorUpdateT] {
+	return func(cb *CLIBuilder[NodeT, T, ValidatorUpdateT]) {
 		cb.runHandler = runHandler
 	}
 }
 
-// WithDefaultRootCommandSetup sets the root command setup func to the default.
-func WithDefaultRootCommandSetup[T types.Node]() Opt[T] {
-	return func(cb *CLIBuilder[T]) {
-		cb.rootCmdSetup = cmdlib.DefaultRootCommandSetup
+// WithNodeBuilderFunc sets the cosmos app creator for the CLIBuilder.
+func WithNodeBuilderFunc[NodeT types.Node[T], T transaction.Tx, ValidatorUpdateT any](
+	nodeBuilderFunc serverv2.AppCreator[NodeT, T],
+) Opt[NodeT, T, ValidatorUpdateT] {
+	return func(cb *CLIBuilder[NodeT, T, ValidatorUpdateT]) {
+		cb.nodeBuilderFunc = nodeBuilderFunc
 	}
 }
 
-// WithNodeBuilderFunc sets the cosmos app creator for the CLIBuilder.
-func WithNodeBuilderFunc[T types.Node](
-	nodeBuilderFunc servertypes.AppCreator[T],
-) Opt[T] {
-	return func(cb *CLIBuilder[T]) {
-		cb.nodeBuilderFunc = nodeBuilderFunc
+// WithServer sets the server for the CLIBuilder.
+func WithServer[NodeT types.Node[T], T transaction.Tx, ValidatorUpdateT any](
+	server *serverv2.Server[NodeT, T],
+) Opt[NodeT, T, ValidatorUpdateT] {
+	return func(cb *CLIBuilder[NodeT, T, ValidatorUpdateT]) {
+		cb.server = server
 	}
 }

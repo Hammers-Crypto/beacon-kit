@@ -183,7 +183,7 @@ func (h *ABCIMiddleware[
 ]) ProcessProposal(
 	ctx context.Context,
 	req proto.Message,
-) (proto.Message, error) {
+) error {
 	var (
 		blk       BeaconBlockT
 		sidecars  BlobSidecarsT
@@ -193,14 +193,14 @@ func (h *ABCIMiddleware[
 	)
 	abciReq, ok := req.(*cmtabci.ProcessProposalRequest)
 	if !ok {
-		return nil, ErrInvalidProcessProposalRequestType
+		return ErrInvalidProcessProposalRequestType
 	}
 
 	defer h.metrics.measureProcessProposalDuration(startTime)
 
 	// Request the beacon block.
-	if blk, err = h.beaconBlockGossiper.Request(ctx, abciReq); err != nil {
-		return h.createProcessProposalResponse(errors.WrapNonFatal(err))
+	if _, err = h.beaconBlockGossiper.Request(ctx, abciReq); err != nil {
+		return err
 	}
 
 	// Begin processing the beacon block.
@@ -209,8 +209,8 @@ func (h *ABCIMiddleware[
 	})
 
 	// Request the blob sidecars.
-	if sidecars, err = h.blobGossiper.Request(ctx, abciReq); err != nil {
-		return h.createProcessProposalResponse(errors.WrapNonFatal(err))
+	if _, err = h.blobGossiper.Request(ctx, abciReq); err != nil {
+		return err
 	}
 
 	// Begin processing the blob sidecars.
@@ -220,7 +220,7 @@ func (h *ABCIMiddleware[
 
 	// Wait for both processes to complete and then
 	// return the appropriate response.s
-	return h.createProcessProposalResponse(g.Wait())
+	return g.Wait()
 }
 
 // verifyBeaconBlock handles the processing of the beacon block.
@@ -285,20 +285,20 @@ func (h *ABCIMiddleware[
 	}
 }
 
-// createResponse generates the appropriate ProcessProposalResponse based on the
-// error.
-func (*ABCIMiddleware[
-	_, BeaconBlockT, _, BlobSidecarsT, _, _, _,
-]) createProcessProposalResponse(
-	err error,
-) (proto.Message, error) {
-	status := cmtabci.PROCESS_PROPOSAL_STATUS_REJECT
-	if !errors.IsFatal(err) {
-		status = cmtabci.PROCESS_PROPOSAL_STATUS_ACCEPT
-		err = nil
-	}
-	return &cmtabci.ProcessProposalResponse{Status: status}, err
-}
+// // createResponse generates the appropriate ProcessProposalResponse based on the
+// // error.
+// func (*ABCIMiddleware[
+// 	_, BeaconBlockT, _, BlobSidecarsT, _, _, _,
+// ]) createProcessProposalResponse(
+// 	err error,
+// ) (proto.Message, error) {
+// 	status := cmtabci.PROCESS_PROPOSAL_STATUS_REJECT
+// 	if !errors.IsFatal(err) {
+// 		status = cmtabci.PROCESS_PROPOSAL_STATUS_ACCEPT
+// 		err = nil
+// 	}
+// 	return &cmtabci.ProcessProposalResponse{Status: status}, err
+// }
 
 /* -------------------------------------------------------------------------- */
 /*                                FinalizeBlock                               */

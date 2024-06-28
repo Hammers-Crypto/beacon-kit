@@ -45,3 +45,9 @@ func convertValidatorUpdate[ValidatorUpdateT any](
 		Power: int64(update.EffectiveBalance.Unwrap()),
 	}).(ValidatorUpdateT), nil
 }
+
+func (c *ConsensusEngine[
+	T, ValidatorUpdateT,
+]) convertTx(tx *[]byte) (T, error) {
+	return c.txCodec.Decode(*tx)
+}
