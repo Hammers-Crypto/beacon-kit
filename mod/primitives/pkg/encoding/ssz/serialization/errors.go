@@ -18,6 +18,22 @@
 // MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND
 // TITLE.
 
-package serializer
+package serialization
 
-// Types that need to be handled with the "non receiver solution."
+import (
+	"github.com/berachain/beacon-kit/mod/errors"
+)
+
+var (
+	// ErrUnexpectedInputLengthBase is the base error for unexpected input
+	// length errors.
+	ErrUnexpectedInputLengthBase = errors.New("unexpected input length")
+)
+
+// ErrUnexpectedInputLength returns an error indicating that the input length.
+func ErrUnexpectedInputLength(expected, actual int) error {
+	return errors.Wrapf(
+		ErrUnexpectedInputLengthBase,
+		"expected %d, got %d", expected, actual,
+	)
+}

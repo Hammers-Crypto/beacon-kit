@@ -22,25 +22,16 @@
 package math
 
 import (
-	"fmt"
-
 	"github.com/berachain/beacon-kit/mod/primitives/pkg/encoding/ssz/constants"
+	"github.com/berachain/beacon-kit/mod/primitives/pkg/encoding/ssz/serialization"
 	"github.com/berachain/beacon-kit/mod/primitives/pkg/encoding/ssz/types"
 )
-
-/* -------------------------------------------------------------------------- */
-/*                                Type Definitions                            */
-/* -------------------------------------------------------------------------- */
 
 // Ensure type implements types.SSZType.
 var _ types.SSZType[U8] = (*U8)(nil)
 
 // U8 represents a 8-bit unsigned integer that is both SSZ and JSON.
 type U8 uint8
-
-/* -------------------------------------------------------------------------- */
-/*                                     U8                                     */
-/* -------------------------------------------------------------------------- */
 
 // SizeSSZ returns the size of the uint8 in bytes.
 func (U8) SizeSSZ() int {
@@ -49,21 +40,12 @@ func (U8) SizeSSZ() int {
 
 // MarshalSSZ marshals the uint8 into SSZ format.
 func (u U8) MarshalSSZ() ([]byte, error) {
-	return []byte{byte(u)}, nil
+	return serialization.MarshalU8(u), nil
 }
 
 // NewFromSSZ creates a new U8 from SSZ format.
 func (U8) NewFromSSZ(buf []byte) (U8, error) {
-	if len(buf) != constants.U8Size {
-		return 0, fmt.Errorf(
-			"invalid buffer length: expected %d, got %d",
-			constants.U8Size,
-			len(buf),
-		)
-	}
-
-	//#nosec:G701 // the check above protects against overflow.
-	return U8(buf[0]), nil
+	return serialization.UnmarshalU8[U8](buf)
 }
 
 // HashTreeRoot returns the hash tree root of the uint8.
