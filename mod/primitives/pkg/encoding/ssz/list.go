@@ -106,7 +106,21 @@ func (l *List[T]) ChunkCount() uint64 {
 
 // Type returns the type of the List.
 func (l *List[T]) Type() types.Type {
-	return types.Composite
+	return types.Elements
+}
+
+// Type returns the element type
+func (l *List[T]) ElementType() types.Type {
+	var t T
+	return t.Type()
+}
+
+// ElementAtIndex returns the element at the given index
+func (l *List[T]) ElementAtIndex(i uint64) T {
+	if i >= uint64(len(l.elements)) {
+		panic("index out of range")
+	}
+	return l.elements[i]
 }
 
 // Elements returns the elements of the List.
@@ -120,13 +134,13 @@ func (l *List[T]) HashTreeRootWith(
 	merkleizer ListMerkleizer[[32]byte, T],
 ) ([32]byte, error) {
 	var b T
-	switch b.Type() {
-	case types.Basic:
+	switch t := b.Type(); {
+	case t.IsBasic():
 		return merkleizer.MerkleizeListBasic(l.elements, l.ChunkCount())
-	case types.Composite:
+	case t.IsComposite():
 		return merkleizer.MerkleizeListComposite(l.elements, l.ChunkCount())
 	default:
-		return [32]byte{}, errors.Wrapf(ErrUnknownType, "%v", b.Type())
+		return [32]byte{}, errors.Wrapf(ErrUnknownType, "%v", t)
 	}
 }
 

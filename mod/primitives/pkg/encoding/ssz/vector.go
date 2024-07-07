@@ -72,7 +72,7 @@ func (Vector[T]) IsFixed() bool {
 
 // Type returns the type of the VectorBasic.
 func (Vector[T]) Type() types.Type {
-	return types.Composite
+	return types.Elements
 }
 
 // ChunkCount returns the number of chunks in the VectorBasic.
@@ -100,6 +100,14 @@ func (v Vector[T]) Elements() []T {
 	return v
 }
 
+// ElementAtIndex returns the element at the given index
+func (v Vector[T]) ElementAtIndex(i uint64) T {
+	if i >= uint64(len(v)) {
+		panic("index out of range")
+	}
+	return v[i]
+}
+
 /* -------------------------------------------------------------------------- */
 /*                                Merkleization                               */
 /* -------------------------------------------------------------------------- */
@@ -110,10 +118,10 @@ func (v Vector[T]) HashTreeRootWith(
 	merkleizer VectorMerkleizer[[32]byte, T],
 ) ([32]byte, error) {
 	var b T
-	switch b.Type() {
-	case types.Basic:
+	switch t := b.Type(); {
+	case t.IsBasic():
 		return merkleizer.MerkleizeVectorBasic(v)
-	case types.Composite:
+	case t.IsComposite():
 		return merkleizer.MerkleizeVectorCompositeOrContainer(v)
 	default:
 		return [32]byte{}, errors.Wrapf(ErrUnknownType, "%v", b.Type())

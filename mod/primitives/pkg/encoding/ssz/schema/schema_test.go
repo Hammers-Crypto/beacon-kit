@@ -1,9 +1,30 @@
+// SPDX-License-Identifier: BUSL-1.1
+//
+// Copyright (C) 2024, Berachain Foundation. All rights reserved.
+// Use of this software is governed by the Business Source License included
+// in the LICENSE file of this repository and at www.mariadb.com/bsl11.
+//
+// ANY USE OF THE LICENSED WORK IN VIOLATION OF THIS LICENSE WILL AUTOMATICALLY
+// TERMINATE YOUR RIGHTS UNDER THIS LICENSE FOR THE CURRENT AND ALL OTHER
+// VERSIONS OF THE LICENSED WORK.
+//
+// THIS LICENSE DOES NOT GRANT YOU ANY RIGHT IN ANY TRADEMARK OR LOGO OF
+// LICENSOR OR ITS AFFILIATES (PROVIDED THAT YOU MAY USE A TRADEMARK OR LOGO OF
+// LICENSOR AS EXPRESSLY REQUIRED BY THIS LICENSE).
+//
+// TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSED WORK IS PROVIDED ON
+// AN “AS IS” BASIS. LICENSOR HEREBY DISCLAIMS ALL WARRANTIES AND CONDITIONS,
+// EXPRESS OR IMPLIED, INCLUDING (WITHOUT LIMITATION) WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND
+// TITLE.
+
 package schema_test
 
 import (
 	"strings"
 	"testing"
 
+	"github.com/berachain/beacon-kit/mod/primitives/pkg/encoding/ssz/proof"
 	"github.com/berachain/beacon-kit/mod/primitives/pkg/encoding/ssz/schema"
 	"github.com/stretchr/testify/require"
 )
@@ -45,8 +66,8 @@ func Test_Schema_Paths(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(strings.ReplaceAll(tc.path, "/", "."), func(t *testing.T) {
-			objectPath := schema.Path(tc.path)
-			node, err := schema.GetTreeNode(root, objectPath)
+			objectPath := proof.ObjectPath(tc.path)
+			node, err := schema.GetTreeNode(root, objectPath.Split())
 			require.NoError(t, err)
 			require.Equalf(
 				t,
@@ -65,4 +86,82 @@ func Test_Schema_Paths(t *testing.T) {
 			)
 		})
 	}
+}
+
+type Test struct {
+	MyField1 uint64
+	MyField2 Nested1
+}
+
+type Nested1 struct {
+	MyField3 uint64
+}
+
+func (t *Test) DefineSSZSchema() schema.SSZType {
+	return schema.Container(
+		schema.Field("my_field1", schema.UInt64()),
+		schema.Field("nested1", Nested1{}.DefineSSZSchema()),
+	)
+}
+
+func (Nested1) DefineSSZSchema() schema.SSZType {
+	return schema.Container(
+		schema.Field("my_field3", schema.UInt64()),
+	)
+}
+
+func TestNestedSchemas(t *testing.T) {
+	testSchema := (&Test{}).DefineSSZSchema()
+
+	t.Run("Test schema", func(t *testing.T) {
+<<<<<<< Updated upstream
+		node, err := schema.GetTreeNode(
+			testSchema,
+			proof.ObjectPath("my_field1").Split(),
+		)
+=======
+		node, err := schema.GetTreeNode(testSchema, proof.ObjectPath("my_field1").Split())
+>>>>>>> Stashed changes
+		require.NoError(t, err)
+		require.Equal(t, uint64(2), node.GIndex)
+		require.Equal(t, uint8(0), node.Offset)
+	})
+
+	t.Run("Nested1 schema", func(t *testing.T) {
+		nested1Schema := Nested1{}.DefineSSZSchema()
+
+<<<<<<< Updated upstream
+		node, err := schema.GetTreeNode(
+			nested1Schema,
+			proof.ObjectPath("my_field3").Split(),
+		)
+=======
+		node, err := schema.GetTreeNode(nested1Schema, proof.ObjectPath("my_field3").Split())
+>>>>>>> Stashed changes
+		require.NoError(t, err)
+		require.Equal(t, uint64(1), node.GIndex)
+		require.Equal(t, uint8(0), node.Offset)
+	})
+
+<<<<<<< Updated upstream
+	// TODO: I THINK THERE IS A BUG HERE
+	// t.Run("Nested field access", func(t *testing.T) {
+	// 	node, err := schema.GetTreeNode(
+	// 		testSchema,
+	// 		proof.ObjectPath("nested1/my_field3").Split(),
+	// 	)
+	// 	require.NoError(t, err)
+	// 	// I think this something is up here.
+	// 	require.Equal(t, uint64(6), node.GIndex)
+	// 	require.Equal(t, uint8(0), node.Offset)
+	// })
+=======
+	t.Run("Nested field access", func(t *testing.T) {
+		node, err := schema.GetTreeNode(testSchema, proof.ObjectPath("nested1/my_field3").Split())
+		require.NoError(t, err)
+		// I think this something is up here.
+		require.Equal(t, uint64(6), node.GIndex)
+		require.Equal(t, uint8(0), node.Offset)
+	})
+>>>>>>> Stashed changes
 }
