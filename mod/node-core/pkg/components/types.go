@@ -23,7 +23,6 @@ package components
 import (
 	broker "github.com/berachain/beacon-kit/mod/async/pkg/broker"
 	asynctypes "github.com/berachain/beacon-kit/mod/async/pkg/types"
-	"github.com/berachain/beacon-kit/mod/beacon"
 	"github.com/berachain/beacon-kit/mod/beacon/blockchain"
 	"github.com/berachain/beacon-kit/mod/beacon/validator"
 	"github.com/berachain/beacon-kit/mod/consensus-types/pkg/genesis"
@@ -37,14 +36,17 @@ import (
 	engineclient "github.com/berachain/beacon-kit/mod/execution/pkg/client"
 	"github.com/berachain/beacon-kit/mod/execution/pkg/deposit"
 	execution "github.com/berachain/beacon-kit/mod/execution/pkg/engine"
+	gethprimitives "github.com/berachain/beacon-kit/mod/geth-primitives"
 	"github.com/berachain/beacon-kit/mod/node-core/pkg/components/signer"
+	"github.com/berachain/beacon-kit/mod/node-core/pkg/components/storage"
 	"github.com/berachain/beacon-kit/mod/payload/pkg/attributes"
 	payloadbuilder "github.com/berachain/beacon-kit/mod/payload/pkg/builder"
+	"github.com/berachain/beacon-kit/mod/primitives/pkg/common"
 	"github.com/berachain/beacon-kit/mod/primitives/pkg/math"
 	"github.com/berachain/beacon-kit/mod/primitives/pkg/service"
 	"github.com/berachain/beacon-kit/mod/primitives/pkg/transition"
 	"github.com/berachain/beacon-kit/mod/runtime/pkg/middleware"
-	"github.com/berachain/beacon-kit/mod/state-transition/pkg/core"
+	statedb "github.com/berachain/beacon-kit/mod/state-transition/pkg/core/state"
 	"github.com/berachain/beacon-kit/mod/storage/pkg/beacondb"
 	depositdb "github.com/berachain/beacon-kit/mod/storage/pkg/deposit"
 	"github.com/berachain/beacon-kit/mod/storage/pkg/manager"
@@ -55,7 +57,6 @@ type (
 	ABCIMiddleware = middleware.ABCIMiddleware[
 		*AvailabilityStore,
 		*BeaconBlock,
-		BeaconState,
 		*BlobSidecars,
 		*Deposit,
 		*ExecutionPayload,
@@ -64,7 +65,7 @@ type (
 
 	// AttributesFactory is a type alias for the attributes factory.
 	AttributesFactory = attributes.Factory[
-		BeaconState,
+		*BeaconState,
 		*engineprimitives.PayloadAttributes[*Withdrawal],
 		*Withdrawal,
 	]
@@ -78,10 +79,10 @@ type (
 	BeaconBlockHeader = types.BeaconBlockHeader
 
 	// BeaconState is a type alias for the BeaconState.
-	BeaconState = core.BeaconState[
-		*BeaconBlockHeader, *types.Eth1Data,
-		*ExecutionPayloadHeader, *types.Fork,
-		*types.Validator, *Withdrawal,
+	BeaconState = statedb.StateDB[
+		*BeaconBlockHeader, *BeaconStateMarshallable, *types.Eth1Data,
+		*ExecutionPayloadHeader, *types.Fork, *KVStore,
+		*types.Validator, *Withdrawal, types.WithdrawalCredentials,
 	]
 
 	// BeaconStateMarshallable is a type alias for the BeaconStateMarshallable.
@@ -105,7 +106,7 @@ type (
 		*BeaconBlock,
 		*BeaconBlockBody,
 		*BeaconBlockHeader,
-		BeaconState,
+		*BeaconState,
 		*BlobSidecars,
 		*Deposit,
 		*ExecutionPayload,
@@ -174,17 +175,18 @@ type (
 
 	// LocalBuilder is a type alias for the local builder.
 	LocalBuilder = payloadbuilder.PayloadBuilder[
-		BeaconState,
+		*BeaconState,
 		*ExecutionPayload,
 		*ExecutionPayloadHeader,
 		*engineprimitives.PayloadAttributes[*Withdrawal],
 		engineprimitives.PayloadID,
+		*Withdrawal,
 	]
 
 	// StateProcessor is the type alias for the state processor interface.
 	StateProcessor = blockchain.StateProcessor[
 		*BeaconBlock,
-		BeaconState,
+		*BeaconState,
 		*BlobSidecars,
 		*transition.Context,
 		*Deposit,
@@ -192,20 +194,29 @@ type (
 	]
 
 	// StorageBackend is the type alias for the storage backend interface.
-	StorageBackend = beacon.StorageBackend[
+	StorageBackend = storage.Backend[
 		*AvailabilityStore,
 		*BeaconBlockBody,
-		BeaconState,
+		*BeaconBlockHeader,
+		*BeaconState,
+		*BeaconStateMarshallable,
 		*BlobSidecars,
 		*Deposit,
 		*DepositStore,
+		*types.Eth1Data,
+		*ExecutionPayloadHeader,
+		*types.Fork,
+		*KVStore,
+		*types.Validator,
+		*Withdrawal,
+		types.WithdrawalCredentials,
 	]
 
 	// ValidatorService is a type alias for the validator service.
 	ValidatorService = validator.Service[
 		*BeaconBlock,
 		*BeaconBlockBody,
-		BeaconState,
+		*BeaconState,
 		*BlobSidecars,
 		*Deposit,
 		*DepositStore,
@@ -217,6 +228,9 @@ type (
 
 	// Withdrawal is a type alias for the engineprimitives withdrawal.
 	Withdrawal = engineprimitives.Withdrawal
+
+	// WithdrawalCredentials is a type alias for the withdrawal credentials.
+	WithdrawalCredentials = types.WithdrawalCredentials
 )
 
 /* -------------------------------------------------------------------------- */
@@ -266,3 +280,21 @@ type (
 	// ValidatorUpdateBroker is a type alias for the validator update feed.
 	ValidatorUpdateBroker = broker.Broker[*ValidatorUpdateEvent]
 )
+
+/* -------------------------------------------------------------------------- */
+/*                                Interfaces                                  */
+/* -------------------------------------------------------------------------- */
+
+// PayloadAttributes is the interface for the payload attributes.
+type PayloadAttributes[T any, WithdrawalT any] interface {
+	engineprimitives.PayloadAttributer
+	// New creates a new payload attributes instance.
+	New(
+		uint32,
+		uint64,
+		common.Bytes32,
+		gethprimitives.ExecutionAddress,
+		[]WithdrawalT,
+		common.Root,
+	) (T, error)
+}

@@ -24,7 +24,8 @@ import (
 	"runtime"
 	"unsafe"
 
-	"github.com/berachain/beacon-kit/mod/primitives/pkg/bytes"
+	"github.com/berachain/beacon-kit/mod/errors"
+	"github.com/berachain/beacon-kit/mod/primitives/pkg/crypto"
 	"github.com/berachain/beacon-kit/mod/primitives/pkg/math"
 	"github.com/berachain/beacon-kit/mod/primitives/pkg/merkle/zero"
 	"github.com/prysmaticlabs/gohashtree"
@@ -43,49 +44,61 @@ const (
 	two = 2
 )
 
-type HasherFn[RootT ~[32]byte] func([]RootT, []RootT) error
+// RootHashFn is a function that hashes the input leaves into the output.
+type RootHashFn[RootT ~[32]byte] func(output, input []RootT) error
 
-// Hasher can be re-used for constructing Merkle tree roots.
-type Hasher[RootT ~[32]byte] struct {
-	// buffer is a reusable buffer for hashing.
-	buffer bytes.Buffer[RootT]
-	// hasher is the hashing function to use.
-	hasher HasherFn[RootT]
+// RootHasher is a struct that hashes the input leaves into the output.
+type RootHasher[RootT ~[32]byte] struct {
+	// Hasher is the underlying hasher for combi and mixins.
+	crypto.Hasher[RootT]
+	// rootHashFn is the underlying root hasher for the tree.
+	rootHashFn RootHashFn[RootT]
 }
 
-// NewHasher creates a new merkle Hasher.
-func NewHasher[RootT ~[32]byte](
-	buffer bytes.Buffer[RootT],
-	hashFn HasherFn[RootT],
-) *Hasher[RootT] {
-	return &Hasher[RootT]{
-		buffer: buffer,
-		hasher: hashFn,
+// NewRootHasher constructs a new RootHasher.
+func NewRootHasher[RootT ~[32]byte](
+	hasher crypto.Hasher[RootT],
+	rootHashFn RootHashFn[RootT],
+) *RootHasher[RootT] {
+	return &RootHasher[RootT]{
+		Hasher:     hasher,
+		rootHashFn: rootHashFn,
 	}
 }
 
 // NewRootWithMaxLeaves constructs a Merkle tree root from a set of.
-func (m *Hasher[RootT]) NewRootWithMaxLeaves(
+func (rh *RootHasher[RootT]) NewRootWithMaxLeaves(
 	leaves []RootT,
-	length math.U64,
+	limit math.U64,
 ) (RootT, error) {
-	return m.NewRootWithDepth(leaves, length.NextPowerOfTwo().ILog2Ceil())
+	count := math.U64(len(leaves))
+	if count > limit {
+		return zero.Hashes[0], errors.New("number of leaves exceeds limit")
+	}
+	if limit == 0 {
+		return zero.Hashes[0], nil
+	}
+	if limit == 1 && count == 1 {
+		return leaves[0], nil
+	}
+
+	return rh.NewRootWithDepth(
+		leaves,
+		count.NextPowerOfTwo().ILog2Ceil(),
+		limit.NextPowerOfTwo().ILog2Ceil(),
+	)
 }
 
 // NewRootWithDepth constructs a Merkle tree root from a set of leaves.
-func (m *Hasher[RootT]) NewRootWithDepth(
+func (rh *RootHasher[RootT]) NewRootWithDepth(
 	leaves []RootT,
 	depth uint8,
+	limitDepth uint8,
 ) (RootT, error) {
-	// Return zerohash at depth
+	// Short-circuit to getting memory from the buffer.
 	if len(leaves) == 0 {
-		return zero.Hashes[depth], nil
+		return zero.Hashes[limitDepth], nil
 	}
-
-	// Preallocate a single buffer large enough for the maximum layer size
-	// TODO: It seems that BuildParentTreeRoots has different behaviour
-	// when we pass leaves in directly.
-	buf := m.buffer.Get((len(leaves) + 1) / two)
 
 	var err error
 	for i := range depth {
@@ -94,33 +107,38 @@ func (m *Hasher[RootT]) NewRootWithDepth(
 			leaves = append(leaves, zero.Hashes[i])
 		}
 
-		newLayerSize := (layerLen + 1) / two
-		if err = m.hasher(buf[:newLayerSize], leaves); err != nil {
-			return zero.Hashes[depth], err
+		if err = rh.rootHashFn(leaves, leaves); err != nil {
+			return zero.Hashes[limitDepth], err
 		}
-		leaves, buf = buf[:newLayerSize], leaves
+		leaves = leaves[:(layerLen+1)/two]
 	}
+
+	// If something went wrong, return the zero hash of limitDepth.
 	if len(leaves) != 1 {
-		return zero.Hashes[depth], nil
+		return zero.Hashes[limitDepth], nil
 	}
-	return leaves[0], nil
+
+	// Handle the case where the tree is not full.
+	h := leaves[0]
+	for j := depth; j < limitDepth; j++ {
+		h = rh.Combi(h, zero.Hashes[j])
+	}
+
+	return h, nil
 }
 
-// BuildParentTreeRoots calls BuildParentTreeRootsWithNRoutines with the
-// number of routines set to runtime.GOMAXPROCS(0)-1.
+// BuildParentTreeRoots calls BuildParentTreeRootsWithNRoutines to
+// parallelize the hashing process.
 func BuildParentTreeRoots[RootT ~[32]byte](
 	outputList, inputList []RootT,
 ) error {
-	err := BuildParentTreeRootsWithNRoutines(
+	return BuildParentTreeRootsWithNRoutines(
 		//#nosec:G103 // on purpose.
 		*(*[][32]byte)(unsafe.Pointer(&outputList)),
 		//#nosec:G103 // on purpose.
 		*(*[][32]byte)(unsafe.Pointer(&inputList)),
-		runtime.GOMAXPROCS(0)-1,
+		MinParallelizationSize,
 	)
-
-	// Convert out back to []RootT using unsafe pointer cas
-	return err
 }
 
 // BuildParentTreeRootsWithNRoutines optimizes hashing of a list of roots
@@ -128,10 +146,13 @@ func BuildParentTreeRoots[RootT ~[32]byte](
 // method adapts to the host machine's hardware for potential performance
 // gains over sequential hashing.
 //
+// NOTE: Currently we use `runtime.GOMAXPROCS(0)-1` as the number of
+// goroutines to use.
+//
 // TODO: We do not use generics here due to the gohashtree library not
 // supporting generics.
 func BuildParentTreeRootsWithNRoutines(
-	outputList, inputList [][32]byte, n int,
+	outputList, inputList [][32]byte, minParallelizationSize int,
 ) error {
 	// Validate input list length.
 	inputLength := len(inputList)
@@ -139,52 +160,70 @@ func BuildParentTreeRootsWithNRoutines(
 		return ErrOddLengthTreeRoots
 	}
 
-	// Build output variables
-	outputLength := inputLength / two
-
 	// If the input list is small, hash it using the default method since
 	// the overhead of parallelizing the hashing process is not worth it.
-	if inputLength < MinParallelizationSize {
-		//#nosec:G103 // used of unsafe calls should be audited.
+	if inputLength < minParallelizationSize {
 		return gohashtree.Hash(outputList, inputList)
 	}
 
+	// Get the number of goroutines to use.
+	//
+	// TODO: parameterize n and allow this to be specified by caller.
+	n := runtime.GOMAXPROCS(0) - 1
+
 	// Otherwise parallelize the hashing process for large inputs.
-	// Take the max(n, 1) to prevent division by 0.
-	groupSize := inputLength / (two * max(n, 1))
+	groupSize := inputLength / (two * (n + 1))
 	twiceGroupSize := two * groupSize
 	eg := new(errgroup.Group)
 
-	// if n is 0 the parallelization is disabled and the whole inputList is
+	// Use a buffer to store the results of the hashing process.
+	//
+	// TODO: Move to re-usable buffer.
+	outputLength := inputLength / two
+	workingSpace := make([][32]byte, outputLength)
+
+	// If n is 0 the parallelization is disabled and the whole inputList is
 	// hashed in the main goroutine at the end of this function.
-	for j := range n + 1 {
+	for j := range n {
 		eg.Go(func() error {
 			// inputList:  [-------------------2*groupSize-------------------]
-			//              ^                  ^                    ^        ^
-			//              |                  |                    |        |
-			// j*2*groupSize   (j+1)*2*groupSize    (j+2)*2*groupSize   End
+			//        ______^           ____^               ^               ^
+			//       |                 |                    |               |
+			// j*2*groupSize   (j+1)*2*groupSize    (j+2)*2*groupSize      End
 			//
-			// outputList: [---------groupSize---------]
-			//              ^                         ^
-			//              |                         |
-			//             j*groupSize         (j+1)*groupSize
+			// workingSpace: [---------groupSize---------]
+			//                ^                         ^
+			//                |                         |
+			//           j*groupSize             (j+1)*groupSize
 			//
 			// Each goroutine processes a segment of inputList that is twice as
-			// large as the segment it fills in outputList. This is because the
-			// hash
-			// operation reduces the
-			// size of the input by half.
+			// large as the segment it fills in workingSpace. This is because
+			// the
+			// hash operation reduces the size of the input by half.
 			// Define the segment of the inputList each goroutine will process.
 			segmentStart := j * twiceGroupSize
-			segmentEnd := min((j+1)*twiceGroupSize, inputLength)
+			segmentEnd := (j + 1) * twiceGroupSize
 
 			return gohashtree.Hash(
-				outputList[j*groupSize:min((j+1)*groupSize, outputLength)],
+				workingSpace[j*groupSize:],
 				inputList[segmentStart:segmentEnd],
 			)
 		})
 	}
 
-	// Wait for all goroutines to complete.
+	// Hash the last segment of the inputList.
+	if err := gohashtree.Hash(
+		workingSpace[n*groupSize:],
+		inputList[n*twiceGroupSize:],
+	); err != nil {
+		return err
+	}
+
+	defer func() {
+		// Copy the results from workingSpace to outputList
+		copy(outputList, workingSpace)
+		outputList = outputList[:outputLength]
+	}()
+
 	return eg.Wait()
 }
