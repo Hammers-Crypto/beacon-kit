@@ -21,7 +21,14 @@
 package tree
 
 import (
+	"fmt"
+
+	"github.com/berachain/beacon-kit/mod/errors"
+	"github.com/berachain/beacon-kit/mod/primitives/pkg/crypto"
+	"github.com/berachain/beacon-kit/mod/primitives/pkg/crypto/sha256"
 	"github.com/berachain/beacon-kit/mod/primitives/pkg/math"
+	"github.com/berachain/beacon-kit/mod/primitives/pkg/merkle"
+	"github.com/berachain/beacon-kit/mod/primitives/pkg/merkle/zero"
 )
 
 // New returns a Merkle tree of the given leaves.
@@ -46,4 +53,114 @@ func New[LeafT ~[32]byte](
 		o[i] = hashFn(append(o[i*2][:], o[i*2+1][:]...))
 	}
 	return o
+}
+
+// Tree represents a Merkle tree structure.
+type Tree[RootT ~[32]byte] struct {
+	root   *Node[RootT]
+	hasher *merkle.RootHasher[RootT]
+}
+
+// NewTreeFromLeaves constructs a Merkle tree, with the minimum
+// depth required to support the number of leaves.
+func NewTreeFromLeaves[RootT ~[32]byte](
+	leaves []RootT,
+	maxLeaves uint64,
+) (*Tree[RootT], error) {
+	return NewTreeFromLeavesWithDepth(
+		leaves,
+		math.U64(len(leaves)).NextPowerOfTwo().ILog2Ceil(),
+		math.U64(maxLeaves).NextPowerOfTwo().ILog2Ceil(),
+	)
+}
+
+// NewTreeFromLeavesWithDepth constructs a Merkle tree
+// from a sequence of byte slices.
+// It will fill the tree with zero hashes to create the required depth.
+func NewTreeFromLeavesWithDepth[RootT ~[32]byte](
+	chunks []RootT,
+	depth uint8,
+	limitDepth uint8,
+) (*Tree[RootT], error) {
+	rh := merkle.NewRootHasher(
+		crypto.NewHasher[RootT](sha256.Hash),
+		merkle.BuildParentTreeRoots,
+	)
+
+	// Handle the case where the tree is not full
+	if len(chunks) == 0 {
+		return &Tree[RootT]{
+			root:   &Node[RootT]{},
+			hasher: rh,
+		}, nil
+	}
+
+	if err := VerifySufficientDepth(len(chunks), limitDepth); err != nil {
+		return &Tree[RootT]{}, err
+	}
+
+	// Create leaf nodes
+	currentLayer := make([]*Node[RootT], len(chunks))
+	for i, leaf := range chunks {
+		currentLayer[i] = NewNodeAtDepth(leaf, depth, uint64(i))
+	}
+
+	// Build the tree bottom-up
+	for d := range depth {
+		for i := 0; i < len(currentLayer); i += 2 {
+			left := currentLayer[i]
+			var right *Node[RootT]
+			if i+1 < len(currentLayer) {
+				right = currentLayer[i+1]
+			} else {
+				right = NewNodeAtDepth[RootT](zero.Hashes[d], d, uint64(i+1))
+			}
+			parent := NewNodeFromChildren(left, right, rh.Combi)
+			currentLayer[i/2] = parent
+		}
+	}
+	// If we need to extend the tree to be deeper, we do it virtually.
+	currentNode := currentLayer[0]
+	for j := depth; j < limitDepth; j++ {
+		currentNode = NewNodeFromChildren(
+			currentNode, NewNodeAtDepth[RootT](zero.Hashes[j], j, 1), rh.Combi,
+		)
+	}
+
+	if currentNode == nil {
+		return &Tree[RootT]{}, errors.New("failed to build tree")
+	}
+
+	if currentNode.gIndex != 1 {
+		return &Tree[RootT]{}, errors.New("failed to build tree bad gindex")
+	}
+
+	return &Tree[RootT]{
+		root:   currentNode,
+		hasher: rh,
+	}, nil
+}
+
+// Root returns the root hash of the Merkle tree.
+func (t *Tree[RootT]) Root() RootT {
+	if t.root == nil {
+		return RootT{}
+	}
+	return t.root.value
+}
+
+// VerifySufficientDepth ensures that the depth is sufficient to build a tree.
+func VerifySufficientDepth(numLeaves int, depth uint8) error {
+	switch {
+	case depth > merkle.MaxTreeDepth:
+		return merkle.ErrExceededDepth
+	case numLeaves > (1 << depth):
+		return errors.Wrap(
+			merkle.ErrInsufficientDepthForLeaves,
+			fmt.Sprintf(
+				"attempted to build tree/root with %d leaves at depth %d",
+				numLeaves, depth),
+		)
+	}
+	return nil
 }
