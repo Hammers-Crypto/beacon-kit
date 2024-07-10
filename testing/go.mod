@@ -4,9 +4,10 @@ go 1.22.5
 
 replace (
 	// The following are required to build with the latest version of the cosmos-sdk main branch:
-	cosmossdk.io/api => cosmossdk.io/api v0.7.3-0.20240623110059-dec2d5583e39
+	cosmossdk.io/api => cosmossdk.io/api v0.7.3-0.20240628155326-d426a5db6775
 	cosmossdk.io/core/testing => cosmossdk.io/core/testing v0.0.0-20240623110059-dec2d5583e39
-	github.com/cosmos/cosmos-sdk => github.com/berachain/cosmos-sdk v0.46.0-beta2.0.20240624014538-75ba469b1881
+	github.com/cosmos/cosmos-sdk => github.com/berachain/cosmos-sdk v0.46.0-beta2.0.20240704182039-aa953f8c7f29
+	github.com/cosmos/crypto => github.com/cosmos/crypto v0.0.0-20240312084433-de8f9c76030d
 )
 
 require (
@@ -26,20 +27,21 @@ require (
 )
 
 require (
-	buf.build/gen/go/cometbft/cometbft/protocolbuffers/go v1.34.2-20240312114316-c0d3497e35d6.2 // indirect
+	buf.build/gen/go/cometbft/cometbft/protocolbuffers/go v1.34.2-20240701160653-fedbb9acfd2f.2 // indirect
 	buf.build/gen/go/cosmos/gogo-proto/protocolbuffers/go v1.34.2-20240130113600-88ef6483f90f.2 // indirect
 	cosmossdk.io/api v0.7.5 // indirect
 	cosmossdk.io/collections v0.4.0 // indirect
 	cosmossdk.io/core v0.12.1-0.20240623110059-dec2d5583e39 // indirect
-	cosmossdk.io/depinject v1.0.0-alpha.4.0.20240506202947-fbddf0a55044 // indirect
+	cosmossdk.io/core/testing v0.0.0-20240620161400-a6407f411e80 // indirect
+	cosmossdk.io/depinject v1.0.0-alpha.4.0.20240620161400-a6407f411e80 // indirect
 	cosmossdk.io/errors v1.0.1 // indirect
 	cosmossdk.io/math v1.3.0 // indirect
 	cosmossdk.io/store v1.1.1-0.20240418092142-896cdf1971bc // indirect
-	cosmossdk.io/x/accounts v0.0.0-20240623110059-dec2d5583e39 // indirect
-	cosmossdk.io/x/auth v0.0.0-20240623110059-dec2d5583e39 // indirect
-	cosmossdk.io/x/bank v0.0.0-20240623110059-dec2d5583e39 // indirect
-	cosmossdk.io/x/consensus v0.0.0-20240623110059-dec2d5583e39 // indirect
-	cosmossdk.io/x/staking v0.0.0-20240623110059-dec2d5583e39 // indirect
+	cosmossdk.io/x/accounts v0.0.0-20240625055312-26913b073414 // indirect
+	cosmossdk.io/x/auth v0.0.0-20240624211517-0b35bcebefbf // indirect
+	cosmossdk.io/x/bank v0.0.0-20240625055312-26913b073414 // indirect
+	cosmossdk.io/x/consensus v0.0.0-20240628155326-d426a5db6775 // indirect
+	cosmossdk.io/x/staking v0.0.0-20240624211517-0b35bcebefbf // indirect
 	cosmossdk.io/x/tx v0.13.4-0.20240623110059-dec2d5583e39 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
@@ -53,7 +55,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/berachain/beacon-kit/mod/chain-spec v0.0.0-20240703145037-b5612ab256db // indirect
 	github.com/berachain/beacon-kit/mod/engine-primitives v0.0.0-20240705193247-d464364483df // indirect
-	github.com/bgentry/speakeasy v0.1.1-0.20220910012023-760eaf8b6816 // indirect
+	github.com/bgentry/speakeasy v0.2.0 // indirect
 	github.com/bits-and-blooms/bitset v1.13.0 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.3 // indirect
 	github.com/bufbuild/protocompile v0.14.0 // indirect
@@ -225,9 +227,9 @@ require (
 	golang.org/x/sys v0.22.0 // indirect
 	golang.org/x/term v0.22.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
-	google.golang.org/genproto v0.0.0-20240617180043-68d350f18fd4 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240617180043-68d350f18fd4 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240617180043-68d350f18fd4 // indirect
+	google.golang.org/genproto v0.0.0-20240624140628-dc46fd24d27d // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240624140628-dc46fd24d27d // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240624140628-dc46fd24d27d // indirect
 	google.golang.org/grpc v1.64.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect

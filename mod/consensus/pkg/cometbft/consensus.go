@@ -22,82 +22,114 @@ package cometbft
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 
+	"cosmossdk.io/core/transaction"
+	"cosmossdk.io/server/v2/cometbft/handlers"
 	"github.com/berachain/beacon-kit/mod/primitives/pkg/math"
+	"github.com/berachain/beacon-kit/mod/primitives/pkg/transition"
 	cmtabci "github.com/cometbft/cometbft/abci/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/sourcegraph/conc/iter"
 )
 
-// Consensus is used to decouple the Comet consensus engine from the Cosmos SDK.
-// Right now, it is very coupled to the sdk base app and we will
-// eventually fully decouple this.
-type ConsensusEngine[ValidatorUpdateT any] struct {
-	Middleware
-}
-
-// NewConsensusEngine returns a new consensus middleware.
-func NewConsensusEngine[ValidatorUpdateT any](
+// NewConsensusEngine returns a new consensus engine.
+func NewConsensusEngine[
+	T transaction.Tx, ValidatorUpdateT any,
+](
+	txCodec transaction.Codec[T],
 	m Middleware,
-) *ConsensusEngine[ValidatorUpdateT] {
-	return &ConsensusEngine[ValidatorUpdateT]{
+) *ConsensusEngine[T, ValidatorUpdateT] {
+	return &ConsensusEngine[T, ValidatorUpdateT]{
+		txCodec:    txCodec,
 		Middleware: m,
 	}
 }
 
-func (c *ConsensusEngine[ValidatorUpdateT]) InitGenesis(
+// Consensus is used to decouple the Comet consensus engine from the Cosmos SDK.
+// Right now, it is very coupled to the sdk base app and we will
+// eventually fully decouple this.
+type ConsensusEngine[T transaction.Tx, ValidatorUpdateT any] struct {
+	Middleware
+	txCodec    transaction.Codec[T]
+	valUpdates transition.ValidatorUpdates
+}
+
+func (c *ConsensusEngine[T, ValidatorUpdateT]) InitGenesis(
 	ctx context.Context,
-	genesisBz []byte,
+	bz []byte,
 ) ([]ValidatorUpdateT, error) {
-	updates, err := c.Middleware.InitGenesis(ctx, genesisBz)
+	updates, err := c.Middleware.InitGenesis(ctx, bz)
 	if err != nil {
 		return nil, err
 	}
+	c.valUpdates = updates
 	// Convert updates into the Cosmos SDK format.
-	return iter.MapErr(updates, convertValidatorUpdate[ValidatorUpdateT])
+	return iter.MapErr[
+		*transition.ValidatorUpdate, ValidatorUpdateT,
+	](updates, convertValidatorUpdate)
 }
 
 // TODO: Decouple Comet Types
-func (c *ConsensusEngine[ValidatorUpdateT]) PrepareProposal(
-	ctx sdk.Context,
-	req *cmtabci.PrepareProposalRequest,
-) (*cmtabci.PrepareProposalResponse, error) {
-	slot := math.Slot(req.Height)
+func (c *ConsensusEngine[T, ValidatorUpdateT]) Prepare(
+	ctx context.Context,
+	am handlers.AppManager[T],
+	txs []T,
+	req proto.Message,
+) ([]T, error) {
+	fmt.Println("CONSENSUS ENGINE PREPARE context type", reflect.TypeOf(ctx))
+	abciReq, ok := req.(*cmtabci.PrepareProposalRequest)
+	if !ok {
+		return nil, ErrInvalidRequestType
+	}
+	slot := math.Slot(abciReq.Height)
 	blkBz, sidecarsBz, err := c.Middleware.PrepareProposal(ctx, slot)
 	if err != nil {
 		return nil, err
 	}
-	return &cmtabci.PrepareProposalResponse{
-		Txs: [][]byte{blkBz, sidecarsBz},
-	}, nil
-}
-
-// TODO: Decouple Comet Types
-func (c *ConsensusEngine[ValidatorUpdateT]) ProcessProposal(
-	ctx sdk.Context,
-	req *cmtabci.ProcessProposalRequest,
-) (*cmtabci.ProcessProposalResponse, error) {
-	resp, err := c.Middleware.ProcessProposal(ctx, req)
+	blkTx, err := c.txCodec.Decode(blkBz)
 	if err != nil {
 		return nil, err
 	}
-	return resp.(*cmtabci.ProcessProposalResponse), nil
+	sidecarsTx, err := c.txCodec.Decode(sidecarsBz)
+	if err != nil {
+		return nil, err
+	}
+
+	return []T{blkTx, sidecarsTx}, nil
 }
 
 // TODO: Decouple Comet Types
-func (c *ConsensusEngine[ValidatorUpdateT]) PreBlock(
-	ctx sdk.Context,
-	req *cmtabci.FinalizeBlockRequest,
+func (c *ConsensusEngine[T, ValidatorUpdateT]) Process(
+	ctx context.Context,
+	_ handlers.AppManager[T],
+	txs []T,
+	req proto.Message,
 ) error {
-	return c.Middleware.PreBlock(ctx, req)
+	abciReq, ok := req.(*cmtabci.ProcessProposalRequest)
+	if !ok {
+		return ErrInvalidRequestType
+	}
+	return c.Middleware.ProcessProposal(ctx, abciReq)
 }
 
-func (c *ConsensusEngine[ValidatorUpdateT]) EndBlock(
+func (c *ConsensusEngine[T, ValidatorUpdateT]) EndBlock(
 	ctx context.Context,
-) ([]ValidatorUpdateT, error) {
+) error {
 	updates, err := c.Middleware.EndBlock(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return iter.MapErr(updates, convertValidatorUpdate[ValidatorUpdateT])
+	if updates != nil {
+		c.valUpdates = updates
+	}
+	return nil
+}
+
+func (c *ConsensusEngine[T, ValidatorUpdateT]) UpdateValidators() (
+	[]ValidatorUpdateT, error) {
+	return iter.MapErr[
+		*transition.ValidatorUpdate, ValidatorUpdateT,
+	](c.valUpdates, convertValidatorUpdate)
 }

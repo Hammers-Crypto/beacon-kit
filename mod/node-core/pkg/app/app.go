@@ -21,48 +21,78 @@
 package app
 
 import (
-	"io"
-
+	coreapp "cosmossdk.io/core/app"
+	"cosmossdk.io/core/transaction"
+	"cosmossdk.io/runtime/v2"
+	serverv2 "cosmossdk.io/server/v2"
+	"cosmossdk.io/server/v2/appmanager"
 	bkcomponents "github.com/berachain/beacon-kit/mod/node-core/pkg/components"
-	dbm "github.com/cosmos/cosmos-db"
-	"github.com/cosmos/cosmos-sdk/baseapp"
-	"github.com/cosmos/cosmos-sdk/runtime"
-	servertypes "github.com/cosmos/cosmos-sdk/server/types"
-	"github.com/cosmos/cosmos-sdk/types/mempool"
+	bkappmanager "github.com/berachain/beacon-kit/mod/node-core/pkg/components/appmanager"
+	"github.com/cosmos/cosmos-sdk/client"
 )
 
 var (
-	_ runtime.AppI            = (*BeaconApp)(nil)
-	_ servertypes.Application = (*BeaconApp)(nil)
+	_ runtime.AppI[transaction.Tx]  = (*BeaconApp[transaction.Tx])(nil)
+	_ serverv2.AppI[transaction.Tx] = (*BeaconApp[transaction.Tx])(nil)
 )
 
 // BeaconApp extends an ABCI application, but with most of its parameters
 // exported. They are exported for convenience in creating helper
 // functions, as object capabilities aren't needed for testing.
-type BeaconApp struct {
-	*runtime.App
+type BeaconApp[T transaction.Tx] struct {
+	*runtime.App[T]
+	middleware *bkcomponents.ABCIMiddleware
 }
 
 // NewBeaconKitApp returns a reference to an initialized BeaconApp.
-func NewBeaconKitApp(
-	db dbm.DB,
-	traceStore io.Writer,
-	loadLatest bool,
-	appBuilder *runtime.AppBuilder,
-	baseAppOptions ...func(*baseapp.BaseApp),
-) *BeaconApp {
-	app := &BeaconApp{}
+func NewBeaconKitApp[T transaction.Tx](
+	appBuilder *runtime.AppBuilder[T],
+	middleware *bkcomponents.ABCIMiddleware,
+) *BeaconApp[T] {
+	app := &BeaconApp[T]{
+		middleware: middleware,
+	}
+	var err error
+	app.App, err = appBuilder.Build()
+	if err != nil {
+		panic(err)
+	}
+	appManager := bkappmanager.NewAppManager(
+		app.App.GetAppManager(),
+		middleware,
+	)
+	app.App.AppManager = appManager
 
-	// Build the runtime.App using the app builder.
-	app.App = appBuilder.Build(db, traceStore, append(
-		baseAppOptions, baseapp.SetMempool(mempool.NoOpMempool{}),
-	)...)
-	app.SetTxDecoder(bkcomponents.NoOpTxConfig{}.TxDecoder())
+	// app.SetTxDecoder(bkcomponents.NoOpTxConfig{}.TxDecoder())
 
 	// Load the app.
-	if err := app.Load(loadLatest); err != nil {
+	if err := app.LoadLatest(); err != nil {
 		panic(err)
 	}
 
 	return app
+}
+
+// InterfaceRegistry returns BeaconApp's InterfaceRegistry.
+func (app *BeaconApp[T]) InterfaceRegistry() coreapp.InterfaceRegistry {
+	return nil
+}
+
+// TxConfig returns BeaconApp's TxConfig.
+func (app *BeaconApp[T]) TxConfig() client.TxConfig {
+	return nil
+}
+
+// GetConsensusAuthority gets the consensus authority.
+func (app *BeaconApp[T]) GetConsensusAuthority() string {
+	return "gov"
+}
+
+// GetStore gets the app store.
+func (app *BeaconApp[T]) GetStore() any {
+	return app.App.GetStore()
+}
+
+func (app *BeaconApp[T]) GetAppManager() appmanager.AppManager[T] {
+	return app.App.GetAppManager()
 }

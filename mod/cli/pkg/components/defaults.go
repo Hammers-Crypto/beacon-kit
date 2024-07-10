@@ -20,6 +20,8 @@
 
 package components
 
+import "github.com/cosmos/cosmos-sdk/codec"
+
 // DefaultClientComponents returns the default components for
 // the client.
 func DefaultClientComponents() []any {
@@ -27,5 +29,11 @@ func DefaultClientComponents() []any {
 		ProvideClientContext,
 		ProvideKeyring,
 		ProvideLogger,
+
+		// server v2
+		codec.ProvideInterfaceRegistry,
+		codec.ProvideAddressCodec,
+		codec.ProvideProtoCodec,
+		codec.ProvideLegacyAmino,
 	}
 }

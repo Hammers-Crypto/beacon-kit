@@ -69,13 +69,11 @@ func AddGenesisDepositCmd(cs common.ChainSpec) *cobra.Command {
 				depositAmountString string
 				depositAmount       math.Gwei
 			)
-
 			// Get the BLS signer.
 			blsSigner, err := getBLSSigner(client.GetViperFromCmd(cmd))
 			if err != nil {
 				return err
 			}
-
 			// Get the deposit amount.
 			depositAmountString, err = cmd.Flags().GetString(depositAmountFlag)
 			if err != nil {

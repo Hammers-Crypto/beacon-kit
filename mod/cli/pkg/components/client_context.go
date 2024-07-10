@@ -48,7 +48,7 @@ func init() {
 func ProvideClientContext(
 	appCodec codec.Codec,
 	interfaceRegistry codectypes.InterfaceRegistry,
-	txConfig client.TxConfig,
+	// txConfig client.TxConfig,
 	addressCodec address.Codec,
 	validatorAddressCodec address.ValidatorAddressCodec,
 	consensusAddressCodec address.ConsensusAddressCodec,
@@ -67,7 +67,7 @@ func ProvideClientContext(
 	// Read the config to overwrite the default values with the values from the
 	// config file
 	customClientTemplate, customClientConfig := config.InitClientConfig()
-	clientCtx, err = sdkconfig.ReadDefaultValuesFromDefaultClientConfig(
+	clientCtx, err = sdkconfig.CreateClientConfig(
 		clientCtx,
 		customClientTemplate,
 		customClientConfig,
@@ -76,7 +76,7 @@ func ProvideClientContext(
 		return clientCtx, err
 	}
 
-	clientCtx = clientCtx.WithTxConfig(txConfig)
+	// clientCtx = clientCtx.WithTxConfig(txConfig)
 
 	return clientCtx, nil
 }

@@ -46,8 +46,9 @@ import (
 	"github.com/berachain/beacon-kit/mod/primitives/pkg/service"
 	"github.com/berachain/beacon-kit/mod/primitives/pkg/transition"
 	"github.com/berachain/beacon-kit/mod/runtime/pkg/middleware"
-	statedb "github.com/berachain/beacon-kit/mod/state-transition/pkg/core/state"
+	statedbv2 "github.com/berachain/beacon-kit/mod/state-transition/pkg/core/state/v2"
 	"github.com/berachain/beacon-kit/mod/storage/pkg/beacondb"
+	beacondbv2 "github.com/berachain/beacon-kit/mod/storage/pkg/beacondb/v2"
 	depositdb "github.com/berachain/beacon-kit/mod/storage/pkg/deposit"
 	"github.com/berachain/beacon-kit/mod/storage/pkg/manager"
 )
@@ -79,10 +80,10 @@ type (
 	BeaconBlockHeader = types.BeaconBlockHeader
 
 	// BeaconState is a type alias for the BeaconState.
-	BeaconState = statedb.StateDB[
+	BeaconState = statedbv2.StateDB[
 		*BeaconBlockHeader, *BeaconStateMarshallable, *types.Eth1Data,
-		*ExecutionPayloadHeader, *types.Fork, *KVStore,
-		*types.Validator, *Withdrawal, types.WithdrawalCredentials,
+		*ExecutionPayloadHeader, *types.Fork, *StateStore,
+		*types.Validator, types.WithdrawalCredentials,
 	]
 
 	// BeaconStateMarshallable is a type alias for the BeaconStateMarshallable.
@@ -170,6 +171,11 @@ type (
 		*types.Fork, *types.Validator,
 	]
 
+	StateStore = beacondbv2.Store[
+		*BeaconBlockHeader, *types.Eth1Data, *ExecutionPayloadHeader,
+		*types.Fork, *types.Validator,
+	]
+
 	// LegacyKey type alias to LegacyKey used for LegacySinger construction.
 	LegacyKey = signer.LegacyKey
 
@@ -206,7 +212,7 @@ type (
 		*types.Eth1Data,
 		*ExecutionPayloadHeader,
 		*types.Fork,
-		*KVStore,
+		*StateStore,
 		*types.Validator,
 		*Withdrawal,
 		types.WithdrawalCredentials,

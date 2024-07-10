@@ -21,43 +21,42 @@
 package commands
 
 import (
+	"cosmossdk.io/core/transaction"
+	"cosmossdk.io/runtime/v2"
+	serverv2 "cosmossdk.io/server/v2"
 	confixcmd "cosmossdk.io/tools/confix/cmd"
 	"github.com/berachain/beacon-kit/mod/cli/pkg/commands/client"
 	"github.com/berachain/beacon-kit/mod/cli/pkg/commands/cometbft"
 	"github.com/berachain/beacon-kit/mod/cli/pkg/commands/deposit"
 	"github.com/berachain/beacon-kit/mod/cli/pkg/commands/genesis"
 	"github.com/berachain/beacon-kit/mod/cli/pkg/commands/jwt"
-	"github.com/berachain/beacon-kit/mod/cli/pkg/flags"
 	"github.com/berachain/beacon-kit/mod/node-core/pkg/types"
 	"github.com/berachain/beacon-kit/mod/primitives/pkg/common"
 	"github.com/cosmos/cosmos-sdk/client/keys"
-	"github.com/cosmos/cosmos-sdk/client/pruning"
-	"github.com/cosmos/cosmos-sdk/client/snapshot"
 	"github.com/cosmos/cosmos-sdk/server"
-	servertypes "github.com/cosmos/cosmos-sdk/server/types"
-	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/version"
 	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
+	"github.com/spf13/cobra"
 )
 
-// DefaultRootCommandSetup sets up the default commands for the root command.
-func DefaultRootCommandSetup[T types.Node](
+// Commands sets up the default commands for the root command.
+func Commands[NodeT types.Node[T], T transaction.Tx](
 	root *Root,
-	mm *module.Manager,
-	appCreator servertypes.AppCreator[T],
+	mm *runtime.MM[T],
+	appCreator serverv2.AppCreator[NodeT, T],
 	chainSpec common.ChainSpec,
-) {
+) []*cobra.Command {
 	// Setup the custom start command options.
-	startCmdOptions := server.StartCmdOptions[T]{
-		AddFlags: flags.AddBeaconKitFlags,
-	}
+	// startCmdOptions := server.StartCmdOptions[NodeT]{
+	// 	AddFlags: flags.AddBeaconKitFlags,
+	// }
 
-	// Add all the commands to the root command.
-	root.cmd.AddCommand(
+	cmds := []*cobra.Command{
 		// `comet`
-		cometbft.Commands(appCreator),
+		cometbft.Commands[NodeT](appCreator),
 		// `client`
-		client.Commands(),
+		client.Commands(), // we don't need this anymore once cometbftserver
+		// adheres to the HasStartCmd flag.
 		// `config`
 		confixcmd.ConfigCommand(),
 		// `init`
@@ -70,17 +69,20 @@ func DefaultRootCommandSetup[T types.Node](
 		jwt.Commands(),
 		// `keys`
 		keys.Commands(),
+
+		// Not yet implemented on SimappV2
 		// `prune`
-		pruning.Cmd(appCreator),
-		// `rollback`
-		server.NewRollbackCmd(appCreator),
-		// `snapshots`
-		snapshot.Cmd(appCreator),
-		// `start`
-		server.StartCmdWithOptions(appCreator, startCmdOptions),
+		// pruning.Cmd(appCreator),
+		// // `rollback`
+		// server.NewRollbackCmd(appCreator),
+		// // `snapshots`
+		// snapshot.Cmd(appCreator),
+
 		// `status`
 		server.StatusCommand(),
 		// `version`
 		version.NewVersionCommand(),
-	)
+	}
+
+	return cmds
 }

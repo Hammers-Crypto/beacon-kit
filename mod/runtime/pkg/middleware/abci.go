@@ -23,6 +23,8 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"reflect"
 	"time"
 
 	asynctypes "github.com/berachain/beacon-kit/mod/async/pkg/types"
@@ -69,10 +71,7 @@ func (h *ABCIMiddleware[
 		return genesisErr
 	})
 
-	if err := g.Wait(); err != nil {
-		return nil, err
-	}
-	return valUpdates, nil
+	return valUpdates, g.Wait()
 }
 
 // waitForGenesisData waits for the genesis data to be processed and returns
@@ -80,7 +79,8 @@ func (h *ABCIMiddleware[
 func (h *ABCIMiddleware[
 	_, _, _, _, _, GenesisT,
 ]) waitForGenesisData(ctx context.Context) (
-	transition.ValidatorUpdates, error) {
+	transition.ValidatorUpdates, error,
+) {
 	select {
 	case msg := <-h.valUpdateSub:
 		if msg.Type() != events.ValidatorSetUpdated {
@@ -106,6 +106,7 @@ func (h *ABCIMiddleware[
 	ctx context.Context,
 	slot math.Slot,
 ) ([]byte, []byte, error) {
+	fmt.Println("PREPARE PROPOSAL context type", reflect.TypeOf(ctx))
 	var (
 		g                           errgroup.Group
 		startTime                   = time.Now()
@@ -183,7 +184,7 @@ func (h *ABCIMiddleware[
 ]) ProcessProposal(
 	ctx context.Context,
 	req proto.Message,
-) (proto.Message, error) {
+) error {
 	var (
 		blk       BeaconBlockT
 		sidecars  BlobSidecarsT
@@ -193,14 +194,14 @@ func (h *ABCIMiddleware[
 	)
 	abciReq, ok := req.(*cmtabci.ProcessProposalRequest)
 	if !ok {
-		return nil, ErrInvalidProcessProposalRequestType
+		return ErrInvalidProcessProposalRequestType
 	}
 
 	defer h.metrics.measureProcessProposalDuration(startTime)
 
 	// Request the beacon block.
 	if blk, err = h.beaconBlockGossiper.Request(ctx, abciReq); err != nil {
-		return h.createProcessProposalResponse(errors.WrapNonFatal(err))
+		return err
 	}
 
 	// Begin processing the beacon block.
@@ -210,7 +211,7 @@ func (h *ABCIMiddleware[
 
 	// Request the blob sidecars.
 	if sidecars, err = h.blobGossiper.Request(ctx, abciReq); err != nil {
-		return h.createProcessProposalResponse(errors.WrapNonFatal(err))
+		return err
 	}
 
 	// Begin processing the blob sidecars.
@@ -220,7 +221,7 @@ func (h *ABCIMiddleware[
 
 	// Wait for both processes to complete and then
 	// return the appropriate response.s
-	return h.createProcessProposalResponse(g.Wait())
+	return g.Wait()
 }
 
 // verifyBeaconBlock handles the processing of the beacon block.
@@ -285,21 +286,6 @@ func (h *ABCIMiddleware[
 	}
 }
 
-// createResponse generates the appropriate ProcessProposalResponse based on the
-// error.
-func (*ABCIMiddleware[
-	_, BeaconBlockT, _, BlobSidecarsT, _, _,
-]) createProcessProposalResponse(
-	err error,
-) (proto.Message, error) {
-	status := cmtabci.PROCESS_PROPOSAL_STATUS_REJECT
-	if !errors.IsFatal(err) {
-		status = cmtabci.PROCESS_PROPOSAL_STATUS_ACCEPT
-		err = nil
-	}
-	return &cmtabci.ProcessProposalResponse{Status: status}, err
-}
-
 /* -------------------------------------------------------------------------- */
 /*                                FinalizeBlock                               */
 /* -------------------------------------------------------------------------- */
@@ -307,19 +293,19 @@ func (*ABCIMiddleware[
 // PreBlock is called by the base app before the block is finalized. It
 // is responsible for aggregating oracle data from each validator and writing
 // the oracle data to the store.
-func (h *ABCIMiddleware[
-	_, _, _, _, _, _,
-]) PreBlock(
-	_ context.Context, req proto.Message,
-) error {
-	abciReq, ok := req.(*cmtabci.FinalizeBlockRequest)
-	if !ok {
-		return ErrInvalidFinalizeBlockRequestType
-	}
-	h.req = abciReq
+// func (h *ABCIMiddleware[
+// 	_, _, _, _, _, _,
+// ]) PreBlock(
+// 	_ context.Context, req proto.Message,
+// ) error {
+// 	// abciReq, ok := req.(*cmtabci.FinalizeBlockRequest)
+// 	// if !ok {
+// 	// 	return ErrInvalidFinalizeBlockRequestType
+// 	// }
+// 	// h.req = abciReq
 
-	return nil
-}
+// 	return nil
+// }
 
 // EndBlock returns the validator set updates from the beacon state.
 func (h *ABCIMiddleware[
@@ -333,7 +319,7 @@ func (h *ABCIMiddleware[
 		BeaconBlockTxIndex,
 		BlobSidecarsTxIndex,
 		h.chainSpec.ActiveForkVersionForSlot(
-			math.Slot(h.req.Height),
+			math.Slot(h.req.GetHeight()),
 		))
 	if err != nil {
 		// If we don't have a block, we can't do anything.
@@ -347,9 +333,7 @@ func (h *ABCIMiddleware[
 	}
 
 	// Process the beacon block and return the validator updates.
-	return h.processBeaconBlock(
-		ctx, blk,
-	)
+	return h.processBeaconBlock(ctx, blk)
 }
 
 // processSidecars publishes the sidecars and waits for a response.

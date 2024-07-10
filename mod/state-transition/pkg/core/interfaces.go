@@ -21,8 +21,6 @@
 package core
 
 import (
-	"context"
-
 	"github.com/berachain/beacon-kit/mod/primitives/pkg/common"
 	"github.com/berachain/beacon-kit/mod/primitives/pkg/crypto"
 	"github.com/berachain/beacon-kit/mod/primitives/pkg/math"
@@ -36,17 +34,16 @@ type BeaconState[
 	Eth1DataT,
 	ExecutionPayloadHeaderT,
 	ForkT,
-	KVStoreT,
+	StateStoreT,
 	ValidatorT,
 	WithdrawalT any,
 ] interface {
 	NewFromDB(
-		bdb KVStoreT,
+		bdb StateStoreT,
 		cs common.ChainSpec,
 	) T
 	Copy() T
 	Save()
-	Context() context.Context
 	HashTreeRoot() ([32]byte, error)
 	ReadOnlyBeaconState[
 		BeaconBlockHeaderT, Eth1DataT, ExecutionPayloadHeaderT,

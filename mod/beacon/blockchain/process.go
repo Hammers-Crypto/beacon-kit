@@ -22,6 +22,8 @@ package blockchain
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"time"
 
 	asynctypes "github.com/berachain/beacon-kit/mod/async/pkg/types"
@@ -37,8 +39,9 @@ func (s *Service[
 	ctx context.Context,
 	genesisData GenesisT,
 ) (transition.ValidatorUpdates, error) {
+	fmt.Println("PROCESS GENESIS DATA context type", reflect.TypeOf(ctx))
 	return s.sp.InitializePreminedBeaconStateFromEth1(
-		s.sb.StateFromContext(ctx),
+		s.sb.BeaconState(),
 		genesisData.GetDeposits(),
 		genesisData.GetExecutionPayloadHeader(),
 		genesisData.GetForkVersion(),
@@ -63,7 +66,8 @@ func (s *Service[
 	// ends up not being valid later, the node will simply AppHash,
 	// which is completely fine. This means we were syncing from a
 	// bad peer, and we would likely AppHash anyways.
-	st := s.sb.StateFromContext(ctx)
+	fmt.Println("PROCESS BEACON BLOCK context type", reflect.TypeOf(ctx))
+	st := s.sb.BeaconState()
 	valUpdates, err := s.executeStateTransition(ctx, st, blk)
 	if err != nil {
 		return nil, err
@@ -72,7 +76,7 @@ func (s *Service[
 	// If the blobs needed to process the block are not available, we
 	// return an error. It is safe to use the slot off of the beacon block
 	// since it has been verified as correct already.
-	if !s.sb.AvailabilityStore(ctx).IsDataAvailable(
+	if !s.sb.AvailabilityStore().IsDataAvailable(
 		ctx, blk.GetSlot(), blk.GetBody(),
 	) {
 		return nil, ErrDataNotAvailable

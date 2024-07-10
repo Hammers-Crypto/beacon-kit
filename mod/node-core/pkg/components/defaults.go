@@ -21,8 +21,12 @@
 package components
 
 import (
+	"cosmossdk.io/core/transaction"
 	"github.com/berachain/beacon-kit/mod/consensus-types/pkg/types"
 	engineprimitives "github.com/berachain/beacon-kit/mod/engine-primitives/pkg/engine-primitives"
+
+	// bktransaction "github.com/berachain/beacon-kit/mod/node-core/pkg/components/transaction"
+	"github.com/cosmos/cosmos-sdk/codec"
 )
 
 func DefaultComponentsWithStandardTypes() []any {
@@ -74,5 +78,17 @@ func DefaultComponentsWithStandardTypes() []any {
 		ProvideTrustedSetup,
 		ProvideValidatorService,
 		ProvideValidatorUpdateBroker,
+		// ProvideNoopTxConfig,
+		// ProvideTxCodec[*bktransaction.SSZTx],
+		ProvideTxCodec[transaction.Tx],
+
+		// server v2
+		ProvideStateStore,
+		ProvideStoreOptions,
+
+		codec.ProvideInterfaceRegistry,
+		codec.ProvideAddressCodec,
+		codec.ProvideProtoCodec,
+		codec.ProvideLegacyAmino,
 	}
 }

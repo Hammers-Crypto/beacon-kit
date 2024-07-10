@@ -22,6 +22,8 @@ package validator
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"time"
 
 	engineprimitives "github.com/berachain/beacon-kit/mod/engine-primitives/pkg/engine-primitives"
@@ -57,13 +59,16 @@ func (s *Service[
 	// the next finalized block in the chain. A byproduct of this design
 	// is that we get the nice property of lazily propagating the finalized
 	// and safe block hashes to the execution client.
-	st := s.bsb.StateFromContext(ctx)
+	fmt.Println("BUILD BLOCK AND SIDECARS context type", reflect.TypeOf(ctx))
+	st := s.bsb.BeaconState()
+	fmt.Println("state from ctx", st)
 
 	// Prepare the state such that it is ready to build a block for
 	// the requested slot
 	if _, err := s.stateProcessor.ProcessSlots(st, requestedSlot); err != nil {
 		return blk, sidecars, err
 	}
+	fmt.Println("PROCESSED")
 
 	// Build the reveal for the current slot.
 	// TODO: We can optimize to pre-compute this in parallel?
@@ -90,7 +95,7 @@ func (s *Service[
 
 	// We have to assemble the block body prior to producing the sidecars
 	// since we need to generate the inclusion proofs.
-	if err = s.buildBlockBody(ctx, st, blk, reveal, envelope); err != nil {
+	if err = s.buildBlockBody(st, blk, reveal, envelope); err != nil {
 		return blk, sidecars, err
 	}
 
@@ -259,7 +264,6 @@ func (s *Service[
 	BeaconBlockT, _, BeaconStateT, _,
 	_, _, Eth1DataT, ExecutionPayloadT, _, _,
 ]) buildBlockBody(
-	ctx context.Context,
 	st BeaconStateT,
 	blk BeaconBlockT,
 	reveal crypto.BLSSignature,
@@ -289,7 +293,7 @@ func (s *Service[
 	}
 
 	// Dequeue deposits from the state.
-	deposits, err := s.bsb.DepositStore(ctx).GetDepositsByIndex(
+	deposits, err := s.bsb.DepositStore().GetDepositsByIndex(
 		depositIndex,
 		s.chainSpec.MaxDepositsPerBlock(),
 	)

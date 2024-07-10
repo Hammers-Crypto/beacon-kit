@@ -21,30 +21,33 @@
 package components
 
 import (
-	"cosmossdk.io/core/appmodule"
+	"fmt"
+
+	"cosmossdk.io/core/transaction"
 	"cosmossdk.io/depinject"
-	"github.com/berachain/beacon-kit/mod/consensus-types/pkg/types"
-	"github.com/berachain/beacon-kit/mod/storage/pkg/beacondb"
-	"github.com/berachain/beacon-kit/mod/storage/pkg/beacondb/encoding"
+	"cosmossdk.io/runtime/v2"
+	bkappmanager "github.com/berachain/beacon-kit/mod/node-core/pkg/components/appmanager"
 )
 
-// KVStoreInput is the input for the ProvideKVStore function.
-type KVStoreInput struct {
+type SDKAppInput[T transaction.Tx] struct {
 	depinject.In
-	Environment appmodule.Environment
+	AppBuilder *runtime.AppBuilder[T]
+	Middleware *ABCIMiddleware
 }
 
-// ProvideKVStore is the depinject provider that returns a beacon KV store.
-func ProvideKVStore(
-	in KVStoreInput,
-) *KVStore {
-	payloadCodec := &encoding.
-		SSZInterfaceCodec[*ExecutionPayloadHeader]{}
-	return beacondb.New[
-		*BeaconBlockHeader,
-		*types.Eth1Data,
-		*ExecutionPayloadHeader,
-		*types.Fork,
-		*types.Validator,
-	](in.Environment.KVStoreService, payloadCodec)
+func ProvideSDKApp[T transaction.Tx](
+	in SDKAppInput[T],
+) (*runtime.App[T], error) {
+	fmt.Println("PP BUILDER", in.AppBuilder)
+	app, err := in.AppBuilder.Build()
+	if err != nil {
+		return nil, err
+	}
+	// set app manager
+	appManager := bkappmanager.NewAppManager(
+		app.GetAppManager(),
+		in.Middleware,
+	)
+	app.AppManager = appManager
+	return app, nil
 }

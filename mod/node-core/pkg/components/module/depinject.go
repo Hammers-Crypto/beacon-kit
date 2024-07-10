@@ -21,29 +21,48 @@
 package beacon
 
 import (
+	// runtimev2 "cosmossdk.io/api/cosmos/app/runtime/v2"
+	// appv1alpha1 "cosmossdk.io/api/cosmos/app/v1alpha1"
 	"cosmossdk.io/core/appmodule"
+	appmodulev2 "cosmossdk.io/core/appmodule/v2"
+
+	// "cosmossdk.io/core/legacy"
+	// "cosmossdk.io/core/registry"
+	"cosmossdk.io/core/transaction"
 	"cosmossdk.io/depinject"
 	"cosmossdk.io/depinject/appconfig"
+
+	// "cosmossdk.io/log"
+	// "cosmossdk.io/runtime/v2"
+	// rootstorev2 "cosmossdk.io/store/v2/root"
 	"github.com/berachain/beacon-kit/mod/node-core/pkg/components"
-	modulev1alpha1 "github.com/berachain/beacon-kit/mod/node-core/pkg/components/module/api/module/v1alpha1"
+	modulev2 "github.com/berachain/beacon-kit/mod/node-core/pkg/components/module/api/module/v2"
+
+	cmtruntime "github.com/berachain/beacon-kit/mod/runtime/pkg/cometbft"
 )
 
 // TODO: we don't allow generics here? Why? Is it fixable?
 //
 //nolint:gochecknoinits // required by sdk.
 func init() {
-	appconfig.RegisterModule(&modulev1alpha1.Module{},
+	appconfig.RegisterModule(&modulev2.Module{},
 		appconfig.Provide(
 			components.ProvideKVStore,
-			ProvideModule,
+			components.ProvideMessageServer,
+			ProvideModule[
+				transaction.Tx,
+				appmodulev2.ValidatorUpdate, // TODO: idk man
+			],
 		),
 	)
 }
 
 // ModuleInput is the input for the dep inject framework.
-type ModuleInput struct {
+type ModuleInput[T transaction.Tx] struct {
 	depinject.In
 	ABCIMiddleware *components.ABCIMiddleware
+	TxCodec        transaction.Codec[T]
+	MsgServer      *cmtruntime.MsgServer
 }
 
 // ModuleOutput is the output for the dep inject framework.
@@ -53,10 +72,14 @@ type ModuleOutput struct {
 }
 
 // ProvideModule is a function that provides the module to the application.
-func ProvideModule(in ModuleInput) (ModuleOutput, error) {
+func ProvideModule[T transaction.Tx, ValidatorUpdateT any](
+	in ModuleInput[T],
+) (ModuleOutput, error) {
 	return ModuleOutput{
-		Module: NewAppModule(
+		Module: NewAppModule[T, ValidatorUpdateT](
 			in.ABCIMiddleware,
+			in.TxCodec,
+			in.MsgServer,
 		),
 	}, nil
 }

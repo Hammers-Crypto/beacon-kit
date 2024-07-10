@@ -18,11 +18,13 @@
 // MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND
 // TITLE.
 
-package comet
+package cometbft
 
 import (
 	"context"
 
+	"cosmossdk.io/core/event"
+	"cosmossdk.io/x/consensus/types"
 	math "github.com/berachain/beacon-kit/mod/primitives/pkg/math"
 	cmtproto "github.com/cometbft/cometbft/api/cometbft/types/v1"
 	cmttypes "github.com/cometbft/cometbft/types"
@@ -70,4 +72,50 @@ func (s *ConsensusParamsStore) Set(
 	_ cmtproto.ConsensusParams,
 ) error {
 	return nil
+}
+
+// LOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOL
+type MsgServer struct {
+	eventService event.Service
+	cs           ChainSpec
+}
+
+func NewMsgServer(
+	eventService event.Service,
+	cs ChainSpec,
+) *MsgServer {
+	return &MsgServer{
+		eventService: eventService,
+	}
+}
+
+// Params queries params of consensus module
+func (m MsgServer) Params(
+	_ context.Context, _ *types.QueryParamsRequest,
+) (*types.QueryParamsResponse, error) {
+	params := m.cs.
+		GetCometBFTConfigForSlot(0).(*cmttypes.ConsensusParams).ToProto()
+	return &types.QueryParamsResponse{Params: &params}, nil
+}
+
+func (m MsgServer) UpdateParams(
+	ctx context.Context, msg *types.MsgUpdateParams,
+) (*types.MsgUpdateParamsResponse, error) {
+	consensusParams, err := msg.ToProtoConsensusParams()
+	if err != nil {
+		return nil, err
+	}
+	if err := m.eventService.EventManager(ctx).EmitKV(
+		"update_consensus_params",
+		event.NewAttribute("authority", msg.Authority),
+		event.NewAttribute("parameters", consensusParams.String()),
+	); err != nil {
+		return nil, err
+	}
+	return &types.MsgUpdateParamsResponse{}, nil
+}
+
+// annoying from sdk v2
+func (m MsgServer) SetCometInfo(ctx context.Context, msg *types.MsgSetCometInfo) (*types.MsgSetCometInfoResponse, error) {
+	return &types.MsgSetCometInfoResponse{}, nil
 }

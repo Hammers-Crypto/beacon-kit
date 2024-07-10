@@ -24,17 +24,30 @@ import (
 	"log/slog"
 	"os"
 
+	appmodulev2 "cosmossdk.io/core/appmodule/v2"
+	"cosmossdk.io/core/transaction"
 	clibuilder "github.com/berachain/beacon-kit/mod/cli/pkg/builder"
 	clicomponents "github.com/berachain/beacon-kit/mod/cli/pkg/components"
 	nodebuilder "github.com/berachain/beacon-kit/mod/node-core/pkg/builder"
 	nodecomponents "github.com/berachain/beacon-kit/mod/node-core/pkg/components"
 	beacon "github.com/berachain/beacon-kit/mod/node-core/pkg/components/module"
+
+	// "github.com/berachain/beacon-kit/mod/node-core/pkg/components/transaction".
 	"github.com/berachain/beacon-kit/mod/node-core/pkg/types"
+	servercomponents "github.com/berachain/beacon-kit/mod/server/pkg/components"
 	"github.com/cosmos/cosmos-sdk/server"
 	"go.uber.org/automaxprocs/maxprocs"
 )
 
-// run runs the beacon node.
+// aliases for hard types
+// type tx = *transaction.SSZTx
+
+type tx = transaction.Tx
+type node = types.Node[tx]
+type validatorUpdate = appmodulev2.ValidatorUpdate
+
+// run runs the beacon node. it is also the central injection point of generic
+// hard types.
 func run() error {
 	// Set the uber max procs
 	if _, err := maxprocs.Set(); err != nil {
@@ -44,26 +57,41 @@ func run() error {
 	// Build the node using the node-core.
 	nb := nodebuilder.New(
 		// Set the DepInject Configuration to the Default.
-		nodebuilder.WithDepInjectConfig[types.Node](
+		nodebuilder.WithDepInjectConfig[node](
 			nodebuilder.DefaultDepInjectConfig()),
 		// Set the Runtime Components to the Default.
-		nodebuilder.WithComponents[types.Node](
+		nodebuilder.WithComponents[node](
 			nodecomponents.DefaultComponentsWithStandardTypes(),
 		),
 	)
 
+	// Build the server using the server builder.
+	// sb := serverbuilder.New[node, tx, validatorUpdate](
+	// 	serverbuilder.WithDepInjectConfig[node, tx, validatorUpdate](
+	// 		nodebuilder.DefaultDepInjectConfig(),
+	// 	),
+	// 	serverbuilder.WithComponents[node, tx, validatorUpdate](
+	// 		servercomponents.ProvideCometServer[node, tx, validatorUpdate],
+	// 		nodecomponents.ProvideTxCodec[T],
+	// 	),
+	// )
+
 	// Build the root command using the builder
 	cb := clibuilder.New(
 		// Set the Name to the Default.
-		clibuilder.WithName[types.Node](nodebuilder.DefaultAppName),
+		clibuilder.WithName[node, tx, validatorUpdate](
+			nodebuilder.DefaultAppName,
+		),
 		// Set the Description to the Default.
-		clibuilder.WithDescription[types.Node](nodebuilder.DefaultDescription),
+		clibuilder.WithDescription[node, tx, validatorUpdate](
+			nodebuilder.DefaultDescription,
+		),
 		// Set the DepInject Configuration to the Default.
-		clibuilder.WithDepInjectConfig[types.Node](
+		clibuilder.WithDepInjectConfig[node, tx, validatorUpdate](
 			nodebuilder.DefaultDepInjectConfig(),
 		),
 		// Set the Runtime Components to the Default.
-		clibuilder.WithComponents[types.Node](
+		clibuilder.WithComponents[node, tx, validatorUpdate](
 			append(
 				clicomponents.DefaultClientComponents(),
 				// TODO: remove these, and eventually pull cfg and chainspec
@@ -71,17 +99,21 @@ func run() error {
 				nodecomponents.ProvideNoopTxConfig,
 				nodecomponents.ProvideConfig,
 				nodecomponents.ProvideChainSpec,
-			),
+				nodecomponents.ProvideTxCodec[tx],
+				servercomponents.ProvideCometServer[node, tx, validatorUpdate],
+			)...,
 		),
-		clibuilder.SupplyModuleDeps[types.Node](
+		clibuilder.SupplyModuleDeps[node, tx, validatorUpdate](
 			beacon.SupplyModuleDependencies(),
 		),
 		// Set the Run Handler to the Default.
-		clibuilder.WithRunHandler[types.Node](
+		clibuilder.WithRunHandler[node, tx, validatorUpdate](
 			server.InterceptConfigsPreRunHandler,
 		),
 		// Set the NodeBuilderFunc to the NodeBuilder Build.
-		clibuilder.WithNodeBuilderFunc[types.Node](nb.Build),
+		clibuilder.WithNodeBuilderFunc[node, tx, validatorUpdate](nb.Build),
+		// Set the Server to the Server.
+		// clibuilder.WithServer[NodeT, T](svr),
 	)
 
 	cmd, err := cb.Build()

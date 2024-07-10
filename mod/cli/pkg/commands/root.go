@@ -34,7 +34,8 @@ type Root struct {
 }
 
 // New returns a new root command with the provided configuration.
-func New(name string,
+func New(
+	name string,
 	description string,
 	runHandler runHandler,
 	clientCtx sdkclient.Context,
@@ -88,6 +89,11 @@ func (root *Root) Run(defaultNodeHome string) error {
 	return svrcmd.Execute(
 		root.cmd, "", defaultNodeHome,
 	)
+}
+
+// Command returns the root command.
+func (root *Root) Command() *cobra.Command {
+	return root.cmd
 }
 
 // Enhance applies the given enhancer to the root command.
