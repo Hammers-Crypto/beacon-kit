@@ -22,6 +22,5 @@ package template
 
 import _ "embed"
 
-//nolint:lll // template.
 //go:embed config.toml.tpl
 var TomlTemplate string
